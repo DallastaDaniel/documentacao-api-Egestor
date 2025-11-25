@@ -10,11 +10,13 @@ Este guia mostra como montar um painel com os principais indicadores de vendas d
 > 🔒 Segurança: o `personal_token` deve ser informado apenas em tempo de execução (por exemplo, via prompt ou campo de formulário) e nunca salvo no código-fonte ou commitado no repositório.
 
 Envie o `personal_token` obtido no menu **Configurações > API** do eGestor para gerar um token de acesso de curta duração.
+Use `grant_type=personal` obrigatoriamente:
 
 ```bash
 curl --request POST \
   --url https://api.egestor.com.br/api/oauth/access_token \
   --header 'Content-Type: application/x-www-form-urlencoded' \
+  --data grant_type=personal \
   --data personal_token=SEU_PERSONAL_TOKEN
 ```
 
@@ -28,7 +30,7 @@ FIRST_DAY=$(date +%Y-%m-01)
 LAST_DAY=$(date -d "$(date +%Y-%m-01) +1 month -1 day" +%Y-%m-%d)
 
 curl --request GET \
-  --url "https://api.egestor.com.br/vendas?dtTipo=dtVenda&dtIni=${FIRST_DAY}&dtFim=${LAST_DAY}&tipo=50&orderBy=dtVenda,asc" \
+  --url "https://api.egestor.com.br/api/v1/vendas?dtTipo=dtVenda&dtIni=${FIRST_DAY}&dtFim=${LAST_DAY}&tipo=50&orderBy=dtVenda,asc" \
   --header "Authorization: Bearer ${ACCESS_TOKEN}"
 ```
 
@@ -57,7 +59,10 @@ async function gerarAccessToken() {
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: new URLSearchParams({ personal_token: personalToken }),
+    body: new URLSearchParams({
+      grant_type: 'personal',
+      personal_token: personalToken,
+    }),
   });
 
   if (!resposta.ok) {
@@ -77,7 +82,7 @@ async function carregarVendasMesAtual(accessToken) {
     .toISOString()
     .slice(0, 10);
 
-  const url = new URL('https://api.egestor.com.br/vendas');
+  const url = new URL('https://api.egestor.com.br/api/v1/vendas');
   url.searchParams.set('dtTipo', 'dtVenda');
   url.searchParams.set('dtIni', primeiroDia);
   url.searchParams.set('dtFim', ultimoDia);
