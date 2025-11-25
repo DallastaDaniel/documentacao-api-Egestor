@@ -150,16 +150,23 @@ document.querySelector('#btn-carregar').addEventListener('click', async () => {
 Inclua três elementos no HTML para os indicadores (`#faturamento`, `#ticket-medio`, `#quantidade-vendas`) e um `<canvas id="grafico-diario">` para o gráfico. Depois de obter o `access_token`, invoque `carregarVendasMesAtual(token)` para popular o dashboard.
 
 ## Exemplo completo em Python (linha de comando)
-Se preferir testar em Python, o repositório inclui um script que pede o `personal_token` apenas em tempo de execução, troca pelo `access_token` e imprime as métricas do mês atual no terminal.
+Se preferir testar em Python, o repositório inclui um script que pede o `personal_token` apenas em tempo de execução, troca pelo `access_token` e imprime as métricas do mês atual no terminal. Há também um modo "mock" para validar o fluxo sem precisar de token ou chamadas externas.
 
-1. Instale a dependência mínima:
-   ```bash
-   pip install requests
-   ```
+1. Garanta que está usando Python 3.11+ (o script usa apenas bibliotecas padrão).
 
 2. Execute o script e informe o `personal_token` quando solicitado:
    ```bash
    python guias/dashboard_vendas_mes_atual.py
    ```
+
+   - Para apontar para outra URL base (por exemplo, um ambiente de homologação), use `--base-url`:
+     ```bash
+     python guias/dashboard_vendas_mes_atual.py --base-url https://seu-egestor.exemplo.com/api
+     ```
+
+   - Para testar sem token nem chamadas HTTP, rode em modo simulado:
+     ```bash
+     python guias/dashboard_vendas_mes_atual.py --mock
+     ```
 
 O script calcula faturamento, quantidade de vendas, ticket médio e lista o faturamento diário, sem persistir tokens em disco.

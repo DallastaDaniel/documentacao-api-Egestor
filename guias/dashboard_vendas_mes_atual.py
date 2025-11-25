@@ -5,31 +5,64 @@ execução e nunca deve ser salvo no código ou em repositórios.
 """
 from __future__ import annotations
 
+import argparse
 import calendar
+import json
 from datetime import date
 from typing import Dict, List
-
-import requests
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 API_BASE = "https://api.egestor.com.br/api"
 
 
-def obter_access_token(personal_token: str) -> str:
+class APIRequestError(RuntimeError):
+    """Erro genérico para chamadas HTTP."""
+
+
+def _post_form(url: str, data: Dict[str, str], timeout: int = 15) -> Dict:
+    payload = urlencode(data).encode()
+    requisicao = Request(
+        url,
+        data=payload,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+
+    try:
+        with urlopen(requisicao, timeout=timeout) as resposta:
+            return json.loads(resposta.read().decode())
+    except HTTPError as exc:  # erro HTTP com código
+        raise APIRequestError(f"HTTP {exc.code}: {exc.reason}") from exc
+    except URLError as exc:  # erro de rede
+        raise APIRequestError(str(exc)) from exc
+
+
+def _get_json(url: str, headers: Dict[str, str] | None = None, timeout: int = 30) -> Dict:
+    requisicao = Request(url, headers=headers or {}, method="GET")
+    try:
+        with urlopen(requisicao, timeout=timeout) as resposta:
+            return json.loads(resposta.read().decode())
+    except HTTPError as exc:
+        raise APIRequestError(f"HTTP {exc.code}: {exc.reason}") from exc
+    except URLError as exc:
+        raise APIRequestError(str(exc)) from exc
+
+
+def obter_access_token(personal_token: str, api_base: str = API_BASE) -> str:
     """
     Troca o personal_token por um access_token temporário.
     O personal_token deve ser coletado em tempo de execução.
     """
 
-    resposta = requests.post(
-        f"{API_BASE}/oauth/access_token",
+    payload = _post_form(
+        f"{api_base}/oauth/access_token",
         data={
             "grant_type": "personal",
             "personal_token": personal_token,
         },
-        timeout=15,
     )
-    resposta.raise_for_status()
-    payload = resposta.json()
     return payload["access_token"]
 
 
@@ -45,24 +78,20 @@ def intervalo_mes_atual() -> Dict[str, str]:
     }
 
 
-def buscar_vendas_mes(access_token: str) -> List[Dict]:
+def buscar_vendas_mes(access_token: str, api_base: str = API_BASE) -> List[Dict]:
     datas = intervalo_mes_atual()
-    params = {
-        "dtTipo": "dtVenda",
-        "dtIni": datas["dtIni"],
-        "dtFim": datas["dtFim"],
-        "tipo": "50",  # apenas vendas, exclui orçamentos
-        "orderBy": "dtVenda,asc",
-    }
-
-    resposta = requests.get(
-        f"{API_BASE}/v1/vendas",
-        headers={"Authorization": f"Bearer {access_token}"},
-        params=params,
-        timeout=30,
+    query = urlencode(
+        {
+            "dtTipo": "dtVenda",
+            "dtIni": datas["dtIni"],
+            "dtFim": datas["dtFim"],
+            "tipo": "50",  # apenas vendas, exclui orçamentos
+            "orderBy": "dtVenda,asc",
+        }
     )
-    resposta.raise_for_status()
-    payload = resposta.json()
+
+    url = f"{api_base}/v1/vendas?{query}"
+    payload = _get_json(url, headers={"Authorization": f"Bearer {access_token}"})
     return payload.get("data", [])
 
 
@@ -92,15 +121,50 @@ def imprimir_metricas(faturamento: float, quantidade: int, ticket_medio: float, 
         print(f"  {dia}: R$ {por_dia[dia]:,.2f}")
 
 
-def main():
-    print("Dashboard de Vendas - eGestor")
-    print("O personal_token será solicitado apenas para esta execução.\n")
-    personal_token = input("Informe seu personal_token: ").strip()
-    if not personal_token:
-        raise SystemExit("personal_token não informado.")
+def mock_vendas_mes_atual() -> List[Dict]:
+    return [
+        {"dtVenda": "2024-08-01", "valorTotal": 1520.75},
+        {"dtVenda": "2024-08-01", "valorTotal": 300.25},
+        {"dtVenda": "2024-08-02", "valorTotal": 820.40},
+        {"dtVenda": "2024-08-03", "valorTotal": 2100.00},
+    ]
 
-    access_token = obter_access_token(personal_token)
-    vendas = buscar_vendas_mes(access_token)
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=(
+            "Dashboard de vendas do mês atual usando a API do eGestor. "
+            "Informe o personal_token somente em tempo de execução."
+        )
+    )
+    parser.add_argument(
+        "--base-url",
+        default=API_BASE,
+        help="URL base da API (padrão: https://api.egestor.com.br/api)",
+    )
+    parser.add_argument(
+        "--mock",
+        action="store_true",
+        help="Usa dados simulados em vez de chamar a API (não precisa de token).",
+    )
+    args = parser.parse_args()
+
+    print("Dashboard de Vendas - eGestor")
+
+    if args.mock:
+        vendas = mock_vendas_mes_atual()
+    else:
+        print("O personal_token será solicitado apenas para esta execução.\n")
+        personal_token = input("Informe seu personal_token: ").strip()
+        if not personal_token:
+            raise SystemExit("personal_token não informado.")
+
+        try:
+            access_token = obter_access_token(personal_token, api_base=args.base_url)
+            vendas = buscar_vendas_mes(access_token, api_base=args.base_url)
+        except APIRequestError as exc:
+            raise SystemExit(f"Erro ao consultar a API: {exc}") from exc
+
     faturamento, quantidade, ticket_medio, por_dia = calcular_metricas(vendas)
     imprimir_metricas(faturamento, quantidade, ticket_medio, por_dia)
 
