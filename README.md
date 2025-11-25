@@ -35,7 +35,7 @@ Integre seu sistema de forma rápida e fácil utilizando nossa [biblioteca para 
 O eGestor não possui sandbox (ambiente de homologação). Cada conta do eGestor é isolada das outras (multi-tenant), sugerimos aos desenvolvedores que criem uma conta de testes, e depois utilizem a conta de produção com os dados dos clientes.
 
 ## Guias práticos
-- [Dashboard de vendas do mês atual](guias/dashboard-vendas-mes-atual.md): passo a passo para montar um painel com faturamento, ticket médio e série diária usando a API.
+- [Dashboard de vendas do mês atual](guias/dashboard-vendas-mes-atual.md): passo a passo para montar um painel com faturamento, ticket médio e série diária usando a API, com exemplos em JavaScript e Python.
 
 Para testar a API, crie uma conta gratuitamente, acesse o sistema e clique no menu configurações. Na aba API você gera o personal_token.
 
